@@ -6,6 +6,18 @@ from django.utils import timezone
 User = get_user_model()
 
 
+class City(models.Model):
+    name = models.CharField(max_length=128, unique=True, verbose_name="Город")
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Город"
+        verbose_name_plural = "Города"
+
+    def __str__(self):
+        return self.name
+
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile", verbose_name="Пользователь")
     phone = models.CharField(max_length=32, blank=True, null=True, verbose_name="Телефон")
@@ -34,7 +46,7 @@ class Listing(models.Model):
     host = models.ForeignKey(User, on_delete=models.CASCADE, related_name="listings", verbose_name="Хозяин")
     title = models.CharField(max_length=255, verbose_name="Название")
     description = models.TextField(blank=True, verbose_name="Описание")
-    city = models.CharField(max_length=128, verbose_name="Город")
+    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name="listings", verbose_name="Город")
     address = models.CharField(max_length=512, blank=True, verbose_name="Адрес")
     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True, verbose_name="Широта")
     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True, verbose_name="Долгота")
@@ -153,25 +165,6 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.user.username} ❤️ {self.listing.title}"
-
-
-class Payment(models.Model):
-    PAYMENT_METHODS = [
-        ("card", "Карта"),
-        ("paypal", "PayPal"),
-        ("manual", "Наличные"),
-    ]
-
-    PAYMENT_STATUS = [
-        ("created", "Создано"),
-        ("paid", "Оплачено"),
-        ("failed", "Ошибка"),
-        ("refunded", "Возвращено"),
-    ]
-
-    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name="payment", verbose_name="Бронирование")
-    amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Сумма")
-
 class Payment(models.Model):
     PAYMENT_METHODS = [
         ("card", "Карта"),
