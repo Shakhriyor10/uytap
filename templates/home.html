@@ -195,7 +195,10 @@
 
     const initialCenter = center || [41.3111, 69.2797];
     mapSection.classList.remove('d-none');
-    map = L.map('map').setView(initialCenter, 12);
+    const mapElement = document.getElementById('map');
+    mapElement.classList.remove('visually-hidden');
+
+    map = L.map(mapElement).setView(initialCenter, 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
@@ -206,7 +209,6 @@
       refreshMapSize();
     });
     mapInitialized = true;
-    document.getElementById('map').classList.remove('visually-hidden');
     refreshMapSize();
   }
 
