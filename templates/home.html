@@ -99,7 +99,7 @@
     <div id="listings-column" class="col-12">
       <div id="listings-container" class="row g-4">
         {% for listing in listings %}
-        <div class="col-sm-6 col-lg-3">
+        <div class="col-sm-6 col-lg-3 listing-col">
           <div class="card listing-card">
             {% with image=listing.get_main_image %}
               {% if image %}
@@ -145,6 +145,7 @@
   let map = null;
   let markersLayer = null;
   let mapInitialized = false;
+  let compactGrid = false;
 
   function refreshMapSize() {
     if (!mapInitialized) return;
@@ -177,7 +178,7 @@
 
     listings.forEach((listing) => {
       const col = document.createElement('div');
-      col.className = 'col-sm-6 col-lg-3';
+      col.className = 'col-sm-6 col-lg-3 listing-col';
       col.innerHTML = `
         <div class="card listing-card">
           <img src="${listing.image}" alt="${listing.title}" class="listing-img">
@@ -190,12 +191,28 @@
         </div>`;
       listingsContainer.appendChild(col);
     });
+
+    applyListingGrid();
+  }
+
+  function setGridMode(compact) {
+    compactGrid = compact;
+    applyListingGrid();
+  }
+
+  function applyListingGrid() {
+    const listingCols = listingsContainer.querySelectorAll('.listing-col');
+    listingCols.forEach((col) => {
+      col.classList.remove('col-lg-3', 'col-lg-6');
+      col.classList.add(compactGrid ? 'col-lg-6' : 'col-lg-3');
+    });
   }
 
   function showMapLayout() {
     mapColumn.classList.remove('d-none');
     mapSection.classList.remove('d-none');
     listingsColumn.classList.add('col-lg-6');
+    updateGridForScroll();
   }
 
   function ensureMapInitialized(center = null) {
@@ -219,6 +236,19 @@
     });
     mapInitialized = true;
     refreshMapSize();
+    updateGridForScroll();
+  }
+
+  function updateGridForScroll() {
+    if (!mapInitialized) {
+      setGridMode(false);
+      return;
+    }
+
+    const scrollY = window.scrollY || window.pageYOffset;
+    const mapBottom = mapSection.offsetTop + mapSection.offsetHeight;
+    const compact = scrollY < mapBottom;
+    setGridMode(compact);
   }
 
   function renderMarkers(listings) {
@@ -292,6 +322,7 @@
   });
 
   window.addEventListener('resize', refreshMapSize);
+  window.addEventListener('scroll', updateGridForScroll);
 
   const defaultDates = [];
   {% if selected_check_in %}defaultDates.push('{{ selected_check_in }}');{% endif %}
