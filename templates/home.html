@@ -96,10 +96,10 @@
   </form>
 
   <div class="row mt-4 g-4">
-    <div class="col-lg-6">
+    <div id="listings-column" class="col-12">
       <div id="listings-container" class="row g-4">
         {% for listing in listings %}
-        <div class="col-md-6">
+        <div class="col-sm-6 col-lg-3">
           <div class="card listing-card">
             {% with image=listing.get_main_image %}
               {% if image %}
@@ -121,7 +121,7 @@
         {% endfor %}
       </div>
     </div>
-    <div class="col-lg-6">
+    <div id="map-column" class="col-12 col-lg-6 d-none">
       <div class="map-wrapper d-none" id="map-section">
         <div id="map" class="visually-hidden"></div>
       </div>
@@ -135,10 +135,12 @@
 <script>
   const form = document.getElementById('filters-form');
   const listingsContainer = document.getElementById('listings-container');
+  const listingsColumn = document.getElementById('listings-column');
   const dateRangeInput = document.getElementById('date-range');
   const checkInInput = form.querySelector('input[name="check_in"]');
   const checkOutInput = form.querySelector('input[name="check_out"]');
   const mapSection = document.getElementById('map-section');
+  const mapColumn = document.getElementById('map-column');
 
   let map = null;
   let markersLayer = null;
@@ -175,7 +177,7 @@
 
     listings.forEach((listing) => {
       const col = document.createElement('div');
-      col.className = 'col-md-6';
+      col.className = 'col-sm-6 col-lg-3';
       col.innerHTML = `
         <div class="card listing-card">
           <img src="${listing.image}" alt="${listing.title}" class="listing-img">
@@ -190,7 +192,14 @@
     });
   }
 
+  function showMapLayout() {
+    mapColumn.classList.remove('d-none');
+    mapSection.classList.remove('d-none');
+    listingsColumn.classList.add('col-lg-6');
+  }
+
   function ensureMapInitialized(center = null) {
+    showMapLayout();
     if (mapInitialized) return;
 
     const initialCenter = center || [41.3111, 69.2797];
