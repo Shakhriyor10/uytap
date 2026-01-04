@@ -56,20 +56,6 @@
       color: #111;
     }
     .filter-label { font-size: 0.9rem; color: #555; }
-    .map-placeholder {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f8f9fa;
-      border: 1px dashed #ced4da;
-      color: #6c757d;
-      border-radius: 12px;
-      padding: 1rem;
-      text-align: center;
-      z-index: 10;
-    }
   </style>
 </head>
 <body>
@@ -134,8 +120,7 @@
       </div>
     </div>
     <div class="col-lg-6">
-      <div class="map-wrapper">
-        <div id="map-placeholder" class="map-placeholder">Нажмите «Фильтровать», чтобы загрузить карту.</div>
+      <div class="map-wrapper d-none" id="map-section">
         <div id="map" class="visually-hidden"></div>
       </div>
     </div>
@@ -151,7 +136,7 @@
   const dateRangeInput = document.getElementById('date-range');
   const checkInInput = form.querySelector('input[name="check_in"]');
   const checkOutInput = form.querySelector('input[name="check_out"]');
-  const mapPlaceholder = document.getElementById('map-placeholder');
+  const mapSection = document.getElementById('map-section');
 
   let map = null;
   let markersLayer = null;
@@ -166,12 +151,12 @@
 
     if (includeBounds && mapInitialized) {
       const bounds = map.getBounds();
-      params.append('south', bounds.getSouth());
-      params.append('west', bounds.getWest());
-      params.append('north', bounds.getNorth());
-      params.append('east', bounds.getEast());
+      params.set('south', bounds.getSouth());
+      params.set('west', bounds.getWest());
+      params.set('north', bounds.getNorth());
+      params.set('east', bounds.getEast());
     }
-    return params.toString();
+    return params;
   }
 
   function renderListings(listings) {
@@ -198,6 +183,23 @@
     });
   }
 
+  function ensureMapInitialized(center = null) {
+    if (mapInitialized) return;
+
+    const initialCenter = center || [41.3111, 69.2797];
+    mapSection.classList.remove('d-none');
+    map = L.map('map').setView(initialCenter, 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
+    map.on('moveend', () => loadListings({ includeMapBounds: true }));
+    mapInitialized = true;
+    document.getElementById('map').classList.remove('visually-hidden');
+    map.invalidateSize();
+  }
+
   function renderMarkers(listings) {
     if (!mapInitialized) return;
     markersLayer.clearLayers();
@@ -213,31 +215,58 @@
     });
   }
 
-  async function loadListings() {
-    if (!mapInitialized) {
-      map = L.map('map').setView([41.3111, 69.2797], 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-      markersLayer = L.layerGroup().addTo(map);
-      map.on('moveend', () => loadListings());
-      mapInitialized = true;
-      mapPlaceholder.classList.add('d-none');
-      document.getElementById('map').classList.remove('visually-hidden');
-      map.invalidateSize();
-    }
+  function listingsCenter(listings) {
+    const withCoords = listings.find((listing) => listing.lat !== null && listing.lng !== null);
+    return withCoords ? [withCoords.lat, withCoords.lng] : [41.3111, 69.2797];
+  }
 
-    const url = `/api/listings/?${buildParams()}`;
+  async function loadListings({ includeMapBounds = false, showMap = false, extraParams = {} } = {}) {
+    const params = buildParams(includeMapBounds && mapInitialized);
+    Object.entries(extraParams).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, value);
+      }
+    });
+
+    const url = `/api/listings/?${params.toString()}`;
     const response = await fetch(url);
     const data = await response.json();
     renderListings(data.results);
-    renderMarkers(data.results);
+
+    if (showMap) {
+      ensureMapInitialized(listingsCenter(data.results));
+    }
+
+    if (mapInitialized) {
+      renderMarkers(data.results);
+    }
+  }
+
+  function loadNearbyListings() {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const delta = 0.3; // ~30km box around the user
+        loadListings({
+          includeMapBounds: false,
+          extraParams: {
+            south: latitude - delta,
+            west: longitude - delta,
+            north: latitude + delta,
+            east: longitude + delta,
+          },
+        });
+      },
+      () => {},
+      { enableHighAccuracy: true }
+    );
   }
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    loadListings();
+    loadListings({ showMap: true, includeMapBounds: mapInitialized });
   });
 
   const defaultDates = [];
@@ -260,6 +289,8 @@
     checkInInput.value = defaultDates[0] || '';
     checkOutInput.value = defaultDates[1] || '';
   }
+
+  loadNearbyListings();
 </script>
 </body>
 </html>
