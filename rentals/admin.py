@@ -44,7 +44,7 @@ class ListingAdmin(admin.ModelAdmin):
         "title", "city", "price_per_day", "host", "property_type", "is_active"
     )
     list_filter = ("city", "property_type", "is_active")
-    search_fields = ("title", "city", "host__username")
+    search_fields = ("title", "city__name", "host__username")
     inlines = [ListingImageInline, AvailabilityInline]
     readonly_fields = ("created_at", "updated_at")
 

@@ -3,30 +3,34 @@ from django.shortcuts import render
 from django.templatetags.static import static
 from django.utils.dateparse import parse_date
 
-from .models import Availability, Listing
+from .models import Availability, City, Listing
 
 
 def home(request):
     listings = Listing.objects.filter(is_active=True)
 
-    city = request.GET.get("city")
+    selected_city = request.GET.get("city")
+    try:
+        city_id = int(selected_city) if selected_city else None
+    except (TypeError, ValueError):
+        city_id = None
     property_type = request.GET.get("property_type")
     check_in = request.GET.get("check_in")
     check_out = request.GET.get("check_out")
 
-    if city:
-        listings = listings.filter(city__icontains=city)
+    if city_id:
+        listings = listings.filter(city_id=city_id)
     if property_type:
         listings = listings.filter(property_type=property_type)
 
     property_types = Listing.PROPERTY_TYPES
-    cities = Listing.objects.values_list("city", flat=True).distinct()
+    cities = City.objects.all()
 
     context = {
         "listings": listings,
         "property_types": property_types,
         "cities": cities,
-        "selected_city": city,
+        "selected_city": city_id,
         "selected_type": property_type,
         "selected_check_in": check_in,
         "selected_check_out": check_out,
@@ -34,9 +38,9 @@ def home(request):
     return render(request, "home.html", context)
 
 
-def _apply_filters(queryset, city=None, property_type=None, check_in=None, check_out=None, bounds=None):
-    if city:
-        queryset = queryset.filter(city__icontains=city)
+def _apply_filters(queryset, city_id=None, property_type=None, check_in=None, check_out=None, bounds=None):
+    if city_id:
+        queryset = queryset.filter(city_id=city_id)
     if property_type:
         queryset = queryset.filter(property_type=property_type)
 
@@ -66,7 +70,11 @@ def _apply_filters(queryset, city=None, property_type=None, check_in=None, check
 def listings_data(request):
     listings = Listing.objects.filter(is_active=True)
 
-    city = request.GET.get("city")
+    city_param = request.GET.get("city")
+    try:
+        city = int(city_param) if city_param else None
+    except (TypeError, ValueError):
+        city = None
     property_type = request.GET.get("property_type")
     check_in = parse_date(request.GET.get("check_in") or "")
     check_out = parse_date(request.GET.get("check_out") or "")
@@ -85,7 +93,7 @@ def listings_data(request):
 
     listings = _apply_filters(
         listings,
-        city=city,
+        city_id=city,
         property_type=property_type,
         check_in=check_in,
         check_out=check_out,
@@ -104,7 +112,7 @@ def listings_data(request):
             {
                 "id": listing.id,
                 "title": listing.title,
-                "city": listing.city,
+                "city": listing.city.name,
                 "address": listing.address,
                 "price": float(listing.price_per_day),
                 "lat": float(listing.latitude) if listing.latitude is not None else None,
