@@ -44,6 +44,8 @@
       position: sticky;
       top: 20px;
       height: 80vh;
+      min-height: 480px;
+      max-height: 80vh;
     }
     #map { height: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .price-marker {
@@ -142,6 +144,11 @@
   let markersLayer = null;
   let mapInitialized = false;
 
+  function refreshMapSize() {
+    if (!mapInitialized) return;
+    requestAnimationFrame(() => map.invalidateSize());
+  }
+
   function buildParams(includeBounds = true) {
     const formData = new FormData(form);
     const params = new URLSearchParams();
@@ -194,10 +201,13 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
     markersLayer = L.layerGroup().addTo(map);
-    map.on('moveend', () => loadListings({ includeMapBounds: true }));
+    map.on('moveend', () => {
+      loadListings({ includeMapBounds: true });
+      refreshMapSize();
+    });
     mapInitialized = true;
     document.getElementById('map').classList.remove('visually-hidden');
-    map.invalidateSize();
+    refreshMapSize();
   }
 
   function renderMarkers(listings) {
@@ -239,6 +249,7 @@
 
     if (mapInitialized) {
       renderMarkers(data.results);
+      refreshMapSize();
     }
   }
 
@@ -268,6 +279,8 @@
     e.preventDefault();
     loadListings({ showMap: true, includeMapBounds: mapInitialized });
   });
+
+  window.addEventListener('resize', refreshMapSize);
 
   const defaultDates = [];
   {% if selected_check_in %}defaultDates.push('{{ selected_check_in }}');{% endif %}
