@@ -100,7 +100,7 @@
     <div id="listings-column" class="col-12">
       <div id="listings-container" class="row g-4">
         {% for listing in listings %}
-        <div class="col-sm-6 col-lg-3 listing-col">
+        <div class="col-6 col-sm-4 col-lg-3 listing-col">
           <div class="card listing-card" data-listing-id="{{ listing.id }}">
             {% with image=listing.get_main_image %}
               {% if image %}
@@ -250,6 +250,10 @@
     return params;
   }
 
+  function isDesktop() {
+    return window.matchMedia('(min-width: 992px)').matches;
+  }
+
   function renderListings(listings) {
     listingsContainer.innerHTML = '';
     if (!listings.length) {
@@ -259,7 +263,7 @@
 
     listings.forEach((listing) => {
       const col = document.createElement('div');
-      col.className = 'col-sm-6 col-lg-3 listing-col';
+      col.className = 'col-6 col-sm-4 col-lg-3 listing-col';
       col.innerHTML = `
         <div class="card listing-card" data-listing-id="${listing.id}">
           <img src="${listing.image}" alt="${listing.title}" class="listing-img">
@@ -291,6 +295,8 @@
   }
 
   function showMapLayout() {
+    if (!isDesktop()) return;
+
     mapColumn.classList.remove('d-none');
     mapSection.classList.remove('d-none');
     listingsColumn.classList.add('col-lg-6');
@@ -298,6 +304,8 @@
   }
 
   function ensureMapInitialized(center = null) {
+    if (!isDesktop()) return;
+
     showMapLayout();
     if (mapInitialized) return;
 
@@ -322,7 +330,7 @@
   }
 
   function updateGridForScroll() {
-    if (!mapInitialized) {
+    if (!mapInitialized || !isDesktop()) {
       setGridMode(false);
       return;
     }
@@ -366,11 +374,11 @@
     const data = await response.json();
     renderListings(data.results);
 
-    if (showMap) {
+    if (showMap && isDesktop()) {
       ensureMapInitialized(listingsCenter(data.results));
     }
 
-    if (mapInitialized) {
+    if (mapInitialized && isDesktop()) {
       renderMarkers(data.results);
       refreshMapSize();
     }
@@ -468,7 +476,25 @@
     });
   }
 
-  window.addEventListener('resize', refreshMapSize);
+  function updateLayoutForViewport() {
+    if (!isDesktop()) {
+      mapColumn.classList.add('d-none');
+      mapSection.classList.add('d-none');
+      listingsColumn.classList.remove('col-lg-6');
+      setGridMode(false);
+      return;
+    }
+
+    if (mapInitialized) {
+      showMapLayout();
+      refreshMapSize();
+    }
+  }
+
+  window.addEventListener('resize', () => {
+    refreshMapSize();
+    updateLayoutForViewport();
+  });
   window.addEventListener('scroll', updateGridForScroll);
 
   const defaultDates = [];
@@ -491,6 +517,8 @@
     checkInInput.value = defaultDates[0] || '';
     checkOutInput.value = defaultDates[1] || '';
   }
+
+  updateLayoutForViewport();
 
   loadNearbyListings();
   attachListingCardHandlers();
