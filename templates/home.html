@@ -16,6 +16,7 @@
       background: #fff;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
       height: 100%;
+      cursor: pointer;
     }
     .listing-card:hover {
       transform: translateY(-2px);
@@ -100,7 +101,7 @@
       <div id="listings-container" class="row g-4">
         {% for listing in listings %}
         <div class="col-sm-6 col-lg-3 listing-col">
-          <div class="card listing-card">
+          <div class="card listing-card" data-listing-id="{{ listing.id }}">
             {% with image=listing.get_main_image %}
               {% if image %}
                 <img src="{{ image.image.url }}" alt="{{ listing.title }}" class="listing-img">
@@ -129,6 +130,71 @@
   </div>
 </div>
 
+<div class="modal fade" id="listingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="listingModalLabel">Объявление</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="listingCarousel" class="carousel slide mb-3">
+          <div class="carousel-indicators"></div>
+          <div class="carousel-inner"></div>
+          <button class="carousel-control-prev" type="button" data-bs-target="#listingCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Предыдущий</span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#listingCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Следующий</span>
+          </button>
+        </div>
+        <p class="text-muted mb-2" id="listingAddress"></p>
+        <p id="listingDescription" class="mb-3"></p>
+        <div class="row g-3">
+          <div class="col-sm-6 col-lg-4">
+            <div class="p-3 bg-light rounded">
+              <div class="fw-semibold text-secondary">Стоимость</div>
+              <div class="fs-5" id="listingPrice"></div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <div class="p-3 bg-light rounded">
+              <div class="fw-semibold text-secondary">Тип жилья</div>
+              <div class="fs-6" id="listingType"></div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <div class="p-3 bg-light rounded">
+              <div class="fw-semibold text-secondary">Гостей</div>
+              <div class="fs-6" id="listingGuests"></div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <div class="p-3 bg-light rounded">
+              <div class="fw-semibold text-secondary">Комнат</div>
+              <div class="fs-6" id="listingRooms"></div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <div class="p-3 bg-light rounded">
+              <div class="fw-semibold text-secondary">Кроватей</div>
+              <div class="fs-6" id="listingBeds"></div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <div class="p-3 bg-light rounded">
+              <div class="fw-semibold text-secondary">Санузлов</div>
+              <div class="fs-6" id="listingBaths"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -146,6 +212,21 @@
   let markersLayer = null;
   let mapInitialized = false;
   let compactGrid = false;
+  const placeholderImage = "{% static 'placeholder.png' %}";
+  const listingModalElement = document.getElementById('listingModal');
+  const listingModal = new bootstrap.Modal(listingModalElement);
+  const modalTitle = document.getElementById('listingModalLabel');
+  const modalAddress = document.getElementById('listingAddress');
+  const modalDescription = document.getElementById('listingDescription');
+  const modalPrice = document.getElementById('listingPrice');
+  const modalType = document.getElementById('listingType');
+  const modalGuests = document.getElementById('listingGuests');
+  const modalRooms = document.getElementById('listingRooms');
+  const modalBeds = document.getElementById('listingBeds');
+  const modalBaths = document.getElementById('listingBaths');
+  const carouselIndicators = document.querySelector('#listingCarousel .carousel-indicators');
+  const carouselInner = document.querySelector('#listingCarousel .carousel-inner');
+  const carouselElement = document.getElementById('listingCarousel');
 
   function refreshMapSize() {
     if (!mapInitialized) return;
@@ -180,7 +261,7 @@
       const col = document.createElement('div');
       col.className = 'col-sm-6 col-lg-3 listing-col';
       col.innerHTML = `
-        <div class="card listing-card">
+        <div class="card listing-card" data-listing-id="${listing.id}">
           <img src="${listing.image}" alt="${listing.title}" class="listing-img">
           <div class="listing-body">
             <div class="listing-title">${listing.title}</div>
@@ -193,6 +274,7 @@
     });
 
     applyListingGrid();
+    attachListingCardHandlers();
   }
 
   function setGridMode(compact) {
@@ -321,6 +403,71 @@
     loadListings({ showMap: true, includeMapBounds: mapInitialized });
   });
 
+  function buildCarousel(images) {
+    carouselIndicators.innerHTML = '';
+    carouselInner.innerHTML = '';
+
+    const hasMultiple = images.length > 1;
+    carouselElement.querySelectorAll('.carousel-control-prev, .carousel-control-next').forEach((control) => {
+      control.style.display = hasMultiple ? '' : 'none';
+    });
+
+    images.forEach((image, index) => {
+      const indicator = document.createElement('button');
+      indicator.type = 'button';
+      indicator.dataset.bsTarget = '#listingCarousel';
+      indicator.dataset.bsSlideTo = index;
+      indicator.ariaLabel = `Слайд ${index + 1}`;
+      if (index === 0) indicator.classList.add('active');
+      indicator.ariaCurrent = index === 0 ? 'true' : undefined;
+      carouselIndicators.appendChild(indicator);
+
+      const item = document.createElement('div');
+      item.className = 'carousel-item' + (index === 0 ? ' active' : '');
+      item.innerHTML = `<img src="${image.url}" class="d-block w-100" style="max-height:400px; object-fit: cover;" alt="Фото объявления">`;
+      if (image.caption) {
+        const caption = document.createElement('div');
+        caption.className = 'carousel-caption d-none d-md-block';
+        caption.textContent = image.caption;
+        item.appendChild(caption);
+      }
+      carouselInner.appendChild(item);
+    });
+  }
+
+  function populateListingModal(data) {
+    modalTitle.textContent = data.title;
+    modalAddress.textContent = `${data.city}${data.address ? ', ' + data.address : ''}`;
+    modalDescription.textContent = data.description || 'Описание скоро появится.';
+    modalPrice.textContent = `${data.price} $/день`;
+    modalType.textContent = data.property_type;
+    modalGuests.textContent = `${data.guests} гостей`;
+    modalRooms.textContent = `${data.rooms} комнат`; 
+    modalBeds.textContent = `${data.beds} кроватей`;
+    modalBaths.textContent = `${data.baths} санузлов`;
+
+    const images = data.images && data.images.length ? data.images : [{ url: data.cover_image || placeholderImage }];
+    buildCarousel(images);
+    listingModal.show();
+  }
+
+  async function openListingModal(listingId) {
+    try {
+      const response = await fetch(`/api/listings/${listingId}/`);
+      if (!response.ok) return;
+      const data = await response.json();
+      populateListingModal(data);
+    } catch (error) {
+      console.error('Не удалось загрузить объявление', error);
+    }
+  }
+
+  function attachListingCardHandlers() {
+    document.querySelectorAll('.listing-card[data-listing-id]').forEach((card) => {
+      card.addEventListener('click', () => openListingModal(card.dataset.listingId));
+    });
+  }
+
   window.addEventListener('resize', refreshMapSize);
   window.addEventListener('scroll', updateGridForScroll);
 
@@ -346,6 +493,7 @@
   }
 
   loadNearbyListings();
+  attachListingCardHandlers();
 </script>
 </body>
 </html>

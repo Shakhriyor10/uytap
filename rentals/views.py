@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.templatetags.static import static
 from django.utils.dateparse import parse_date
 
@@ -123,3 +123,47 @@ def listings_data(request):
         )
 
     return JsonResponse({"results": results})
+
+
+def listing_detail(request, listing_id):
+    listing = get_object_or_404(
+        Listing.objects.select_related("city").prefetch_related("images"),
+        pk=listing_id,
+        is_active=True,
+    )
+
+    image_data = []
+    for image in listing.images.order_by("-is_cover", "id"):
+        image_data.append(
+            {
+                "url": request.build_absolute_uri(image.image.url),
+                "caption": image.caption,
+            }
+        )
+
+    main_image = listing.get_main_image()
+    cover_image = (
+        request.build_absolute_uri(main_image.image.url)
+        if main_image
+        else request.build_absolute_uri(static("placeholder.png"))
+    )
+
+    data = {
+        "id": listing.id,
+        "title": listing.title,
+        "description": listing.description,
+        "city": listing.city.name,
+        "address": listing.address,
+        "price": float(listing.price_per_day),
+        "property_type": listing.get_property_type_display(),
+        "guests": listing.max_guests,
+        "rooms": listing.rooms,
+        "beds": listing.beds,
+        "baths": float(listing.baths),
+        "lat": float(listing.latitude) if listing.latitude is not None else None,
+        "lng": float(listing.longitude) if listing.longitude is not None else None,
+        "cover_image": cover_image,
+        "images": image_data,
+    }
+
+    return JsonResponse(data)
