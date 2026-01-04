@@ -1,9 +1,24 @@
 from django.contrib import admin
 from .models import (
-    Profile, Listing, ListingImage,
-    Availability, Booking, Review,
-    Wishlist, Payment
+    City,
+    Profile,
+    Listing,
+    ListingImage,
+    Availability,
+    Booking,
+    Review,
+    Wishlist,
+    Payment,
 )
+
+
+# ==========================
+# CITY
+# ==========================
+@admin.register(City)
+class CityAdmin(admin.ModelAdmin):
+    search_fields = ("name",)
+    list_display = ("name",)
 
 
 # ==========================
